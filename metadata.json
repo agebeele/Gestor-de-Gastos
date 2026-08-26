@@ -1,0 +1,8 @@
+{
+  "name": "Gestor de Gastos",
+  "description": "Organizador de gastos mensuales con presupuestos, reportes financieros, escaneo inteligente de recibos, soporte multimoneda, exportación a PDF/Excel, copia de seguridad y seguridad biométrica cifrada.",
+  "requestFramePermissions": [
+    "android.permission.CAMERA"
+  ],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
