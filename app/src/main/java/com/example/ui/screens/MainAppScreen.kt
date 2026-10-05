@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ReceiptLong
 import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Home
@@ -152,7 +153,7 @@ fun MainAppScreen(
                             NavigationBarItem(
                                 selected = currentTab == MainTab.TRANSACTIONS,
                                 onClick = { currentTab = MainTab.TRANSACTIONS },
-                                icon = { Icon(Icons.Default.ReceiptLong, contentDescription = "Movimientos") },
+                                icon = { Icon(Icons.AutoMirrored.Filled.ReceiptLong, contentDescription = "Movimientos") },
                                 label = { Text(MainTab.TRANSACTIONS.title, fontWeight = if (currentTab == MainTab.TRANSACTIONS) FontWeight.Bold else FontWeight.Normal) },
                                 modifier = Modifier.testTag("tab_transactions")
                             )
