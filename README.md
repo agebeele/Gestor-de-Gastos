@@ -10,10 +10,10 @@ La app ya incluye el flujo automatizado de GitHub Actions (`.github/workflows/an
 
 1. **Sube tu código a GitHub** (mediante Push o Exportar repositorio).
 2. Ve a la pestaña **Actions** en la parte superior de tu repositorio en GitHub.
-3. Verás ejecutándose el workflow **"Build Android APK (Pesos Mexicanos)"** (también puedes iniciarlo manualmente haciendo clic en **Run workflow**).
+3. Verás ejecutándose el workflow **"Build Android APK"** (también puedes iniciarlo manualmente haciendo clic en **Run workflow**).
 4. Cuando termine con éxito (icono verde ✅):
    - Haz clic en la ejecución.
-   - En la sección inferior **Artifacts**, descarga el archivo **GestorDeGastos-PesosMexicanos-APK**.
+   - En la sección inferior **Artifacts**, descarga el archivo **app-debug** (contiene `GestorDeGastos-MXN.apk`).
 5. **Instalación en el teléfono:**
    - Abre o descomprime el archivo en tu celular.
    - Toca el archivo **GestorDeGastos-MXN.apk**.

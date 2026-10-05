@@ -1,10 +1,9 @@
-name: Build Android APK (Pesos Mexicanos)
+name: Build Android APK
 
 on:
   push:
-    branches: [ "main", "master" ]
+    branches: [ "**" ]
   pull_request:
-    branches: [ "main", "master" ]
   workflow_dispatch:
 
 permissions:
@@ -24,20 +23,24 @@ jobs:
         with:
           distribution: 'temurin'
           java-version: '21'
-          cache: 'gradle'
 
-      - name: Configurar Android SDK
-        uses: android-actions/setup-android@v3
+      - name: Configurar Gradle
+        uses: gradle/actions/setup-gradle@v4
 
-      - name: Preparar Keystore de Firma Debug
+      - name: Preparar Entorno, Keystore y Licencias
         run: |
-          if [ -f "debug.keystore.base64" ]; then
+          touch .env
+          if [ -f "debug.keystore.base64" ] && [ ! -f "debug.keystore" ]; then
             echo "Restaurando debug.keystore desde base64..."
             base64 -d debug.keystore.base64 > debug.keystore
           elif [ ! -f "debug.keystore" ]; then
             echo "Generando nuevo debug.keystore..."
             keytool -genkey -v -keystore debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
           fi
+          mkdir -p "$ANDROID_HOME/licenses" || true
+          echo -e "\n24333f8a63b6825ea9c5514f83c2829b004d1fee" >> "$ANDROID_HOME/licenses/android-sdk-license" 2>/dev/null || true
+          echo -e "\n84831b9409646a918e30573bab4c9c91346d8abd" >> "$ANDROID_HOME/licenses/android-sdk-preview-license" 2>/dev/null || true
+          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses 2>/dev/null || true
 
       - name: Dar permisos de ejecución a Gradle Wrapper
         run: chmod +x gradlew
@@ -45,29 +48,27 @@ jobs:
       - name: Compilar APK Debug
         run: ./gradlew assembleDebug --no-daemon --stacktrace
 
-      - name: Preparar archivo APK para instalación
+      - name: Preparar archivo APK
         run: |
-          mkdir -p output_apk
-          cp app/build/outputs/apk/debug/app-debug.apk output_apk/GestorDeGastos-MXN.apk
-          echo "APK generado exitosamente en output_apk/GestorDeGastos-MXN.apk"
+          mkdir -p apk_output
+          cp app/build/outputs/apk/debug/app-debug.apk apk_output/GestorDeGastos-MXN.apk
+          cp app/build/outputs/apk/debug/app-debug.apk apk_output/app-debug.apk
 
-      - name: Subir APK como Artefacto descargable
+      - name: Subir APK descargable
         uses: actions/upload-artifact@v4
         with:
-          name: GestorDeGastos-PesosMexicanos-APK
-          path: output_apk/GestorDeGastos-MXN.apk
+          name: app-debug
+          path: apk_output/*.apk
           retention-days: 30
 
-      - name: Resumen de Instalación
+      - name: Resumen en GitHub
         run: |
-          echo "### 📱 ¡Tu APK de Gestor de Gastos en Pesos Mexicanos (MXN) está listo!" >> $GITHUB_STEP_SUMMARY
+          echo "### 📱 ¡Tu APK de Gestor de Gastos (Pesos Mexicanos) se compiló exitosamente!" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "El archivo **GestorDeGastos-MXN.apk** se ha generado correctamente." >> $GITHUB_STEP_SUMMARY
+          echo "Descarga el artefacto **app-debug** que contiene el archivo listo para instalar:" >> $GITHUB_STEP_SUMMARY
+          echo "- **GestorDeGastos-MXN.apk**" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "#### 📲 Pasos para instalar en tu teléfono:" >> $GITHUB_STEP_SUMMARY
-          echo "1. Ve a la pestaña **Actions** de tu repositorio en GitHub." >> $GITHUB_STEP_SUMMARY
-          echo "2. Abre la última ejecución de este workflow (**Build Android APK**)." >> $GITHUB_STEP_SUMMARY
-          echo "3. En la parte inferior, en la sección **Artifacts**, haz clic en **GestorDeGastos-PesosMexicanos-APK** para descargarlo." >> $GITHUB_STEP_SUMMARY
-          echo "4. Pasa el archivo a tu teléfono o descárgalo directamente desde el navegador de tu celular." >> $GITHUB_STEP_SUMMARY
-          echo "5. Al abrir el archivo `.apk`, si Android te pide permisos, activa la opción **Permitir instalar aplicaciones de esta fuente**." >> $GITHUB_STEP_SUMMARY
-          echo "6. ¡Toca **Instalar** y disfruta tu app de finanzas 100% en Pesos Mexicanos!" >> $GITHUB_STEP_SUMMARY
+          echo "#### 📲 Pasos para instalar en tu celular:" >> $GITHUB_STEP_SUMMARY
+          echo "1. Ve a la sección **Artifacts** de esta ejecución." >> $GITHUB_STEP_SUMMARY
+          echo "2. Descarga **app-debug.zip** y abre el archivo **GestorDeGastos-MXN.apk**." >> $GITHUB_STEP_SUMMARY
+          echo "3. Permite la instalación desde fuentes desconocidas y presiona **Instalar**." >> $GITHUB_STEP_SUMMARY
