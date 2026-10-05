@@ -23,7 +23,9 @@ jobs:
         with:
           distribution: 'temurin'
           java-version: '21'
-          cache: 'gradle'
+
+      - name: Configurar Gradle
+        uses: gradle/actions/setup-gradle@v4
 
       - name: Preparar Entorno y Licencias Android
         run: |
@@ -35,10 +37,19 @@ jobs:
           mkdir -p "$ANDROID_HOME/licenses" 2>/dev/null || true
           echo "24333f8a63b6825ea9c5514f83c2829b004d1fee" > "$ANDROID_HOME/licenses/android-sdk-license" 2>/dev/null || true
           echo "84831b9409646a918e30573bab4c9c91346d8abd" > "$ANDROID_HOME/licenses/android-sdk-preview-license" 2>/dev/null || true
-          chmod +x gradlew
+          if [ ! -f "gradlew" ]; then
+            echo "gradlew no encontrado en el repositorio, generando wrapper..."
+            gradle wrapper || true
+          fi
+          chmod +x gradlew 2>/dev/null || true
 
       - name: Compilar APK Debug
-        run: ./gradlew assembleDebug --no-daemon --stacktrace
+        run: |
+          if [ -f "./gradlew" ]; then
+            ./gradlew assembleDebug --no-daemon --stacktrace
+          else
+            gradle assembleDebug --no-daemon --stacktrace
+          fi
 
       - name: Preparar archivo APK
         run: |
