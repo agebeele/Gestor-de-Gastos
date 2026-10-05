@@ -182,14 +182,6 @@ fun TransactionItemCard(
                     fontWeight = FontWeight.Bold,
                     color = amountColor
                 )
-
-                if (transaction.currencyCode != activeCurrencyCode) {
-                    Text(
-                        text = "orig. ${CurrencyManager.formatCompact(transaction.originalAmount, transaction.currencyCode)}",
-                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
             }
         }
     }

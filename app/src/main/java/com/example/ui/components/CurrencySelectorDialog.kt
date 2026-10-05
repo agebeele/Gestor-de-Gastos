@@ -76,12 +76,12 @@ fun CurrencySelectorBottomSheet(
                 Spacer(modifier = Modifier.width(12.dp))
                 Column {
                     Text(
-                        text = "Seleccionar Moneda Principal",
+                        text = "Moneda del Gestor de Gastos",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold
                     )
                     Text(
-                        text = "Conversión automática de transacciones multimoneda",
+                        text = "La aplicación está configurada exclusivamente en Pesos Mexicanos ($ MXN)",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -92,8 +92,7 @@ fun CurrencySelectorBottomSheet(
 
             LazyColumn(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .height(380.dp),
+                    .fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 items(CurrencyManager.supportedCurrencies) { currency ->

@@ -47,7 +47,7 @@ class FinanceRepository(private val dao: AppDao) {
             lastCloudBackupTime = System.currentTimeMillis() - 60000L * 15,
             autoCloudSync = true,
             customMonthlyAlerts = true,
-            activeCurrencyCode = "USD"
+            activeCurrencyCode = "MXN"
         )
     )
     val securitySettings = _securitySettings.asStateFlow()

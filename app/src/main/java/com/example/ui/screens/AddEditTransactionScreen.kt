@@ -284,30 +284,22 @@ fun AddEditTransactionScreen(
                     )
                 }
 
-                // Currency Selector Chips
+                // Moneda Fija: Pesos Mexicanos
                 Spacer(modifier = Modifier.height(8.dp))
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                Surface(
+                    shape = RoundedCornerShape(10.dp),
+                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
                 ) {
-                    listOf("USD", "EUR", "MXN", "GBP", "COP").forEach { code ->
-                        val isCurrSelected = selectedCurrency.equals(code, ignoreCase = true)
-                        val cInfo = CurrencyManager.getCurrency(code)
-                        Surface(
-                            shape = RoundedCornerShape(8.dp),
-                            color = if (isCurrSelected) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.8f),
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(8.dp))
-                                .clickable { selectedCurrency = code }
-                        ) {
-                            Text(
-                                text = "${cInfo.flagEmoji} $code",
-                                style = MaterialTheme.typography.labelSmall,
-                                fontWeight = FontWeight.Bold,
-                                color = if (isCurrSelected) Color.White else Color.Black,
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                            )
-                        }
+                    Row(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "🇲🇽 Moneda: Pesos Mexicanos ($ MXN)",
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
                     }
                 }
             }

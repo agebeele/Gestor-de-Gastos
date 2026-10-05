@@ -365,13 +365,12 @@ fun SettingsScreen(
             }
         }
 
-        // --- CURRENCY SETTING ---
+        // --- CURRENCY SETTING (PESOS MEXICANOS) ---
         item {
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(20.dp))
-                    .clickable { onCurrencyClick() },
+                    .clip(RoundedCornerShape(20.dp)),
                 shape = RoundedCornerShape(20.dp),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                 elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
@@ -387,25 +386,24 @@ fun SettingsScreen(
                         Box(
                             modifier = Modifier
                                 .size(40.dp)
-                                .background(MaterialTheme.colorScheme.tertiaryContainer, CircleShape),
+                                .background(MaterialTheme.colorScheme.primaryContainer, CircleShape),
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
                                 imageVector = Icons.Default.CurrencyExchange,
                                 contentDescription = null,
-                                tint = MaterialTheme.colorScheme.tertiary
+                                tint = MaterialTheme.colorScheme.primary
                             )
                         }
                         Spacer(modifier = Modifier.width(12.dp))
                         Column {
                             Text(
-                                text = "Moneda Principal",
+                                text = "Moneda Oficial",
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold
                             )
-                            val cur = CurrencyManager.getCurrency(activeCurrencyCode)
                             Text(
-                                text = "${cur.flagEmoji} ${cur.name} (${cur.code})",
+                                text = "🇲🇽 Pesos Mexicanos ($ MXN)",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -417,7 +415,7 @@ fun SettingsScreen(
                         color = MaterialTheme.colorScheme.primaryContainer
                     ) {
                         Text(
-                            text = "Cambiar",
+                            text = "Fijada MXN",
                             style = MaterialTheme.typography.labelMedium,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onPrimaryContainer,

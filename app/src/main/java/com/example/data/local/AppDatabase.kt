@@ -80,23 +80,23 @@ abstract class AppDatabase : RoomDatabase() {
             dao.insertOrUpdateBudget(
                 BudgetEntity(
                     monthYear = currentMonthYear,
-                    globalBudgetAmount = 2500.0,
+                    globalBudgetAmount = 25000.0,
                     alertThresholdPercent = 80,
                     isAlertEnabled = true,
-                    categoryLimitsJson = "1:400.0;2:200.0;3:800.0;4:150.0;5:180.0;6:120.0;7:100.0"
+                    categoryLimitsJson = "1:4500.0;2:2500.0;3:8000.0;4:1500.0;5:1800.0;6:1200.0;7:1000.0"
                 )
             )
 
-            // Sample initial helpful transactions for immediate visualization
+            // Sample initial helpful transactions in Mexican Pesos (MXN)
             val sampleTransactions = listOf(
                 TransactionEntity(
                     title = "Nómina Quincenal",
-                    amount = 1850.0,
+                    amount = 18500.0,
                     type = "INCOME",
                     categoryId = 13,
                     date = System.currentTimeMillis() - 86400000L * 4,
-                    currencyCode = "USD",
-                    originalAmount = 1850.0,
+                    currencyCode = "MXN",
+                    originalAmount = 18500.0,
                     exchangeRateToMain = 1.0,
                     notes = "Pago de sueldo quincenal",
                     receiptImagePath = null,
@@ -105,30 +105,30 @@ abstract class AppDatabase : RoomDatabase() {
                     isRecurring = true
                 ),
                 TransactionEntity(
-                    title = "Compra Supermercado Orgánico",
-                    amount = 142.50,
+                    title = "Compra Supermercado",
+                    amount = 2450.0,
                     type = "EXPENSE",
                     categoryId = 1,
                     date = System.currentTimeMillis() - 86400000L * 2,
-                    currencyCode = "USD",
-                    originalAmount = 142.50,
+                    currencyCode = "MXN",
+                    originalAmount = 2450.0,
                     exchangeRateToMain = 1.0,
-                    notes = "Frutas, verduras y despensa semanal",
+                    notes = "Frutas, verduras y despensa de la semana",
                     receiptImagePath = null,
                     paymentMethod = "CARD",
                     tags = "despensa,semanal",
                     isRecurring = false
                 ),
                 TransactionEntity(
-                    title = "Cena Restaurante La Terraza",
-                    amount = 58.00,
+                    title = "Cena Restaurante",
+                    amount = 850.0,
                     type = "EXPENSE",
                     categoryId = 2,
                     date = System.currentTimeMillis() - 86400000L * 1,
-                    currencyCode = "USD",
-                    originalAmount = 58.00,
+                    currencyCode = "MXN",
+                    originalAmount = 850.0,
                     exchangeRateToMain = 1.0,
-                    notes = "Cena de fin de semana con amigos",
+                    notes = "Cena de fin de semana",
                     receiptImagePath = null,
                     paymentMethod = "CARD",
                     tags = "ocio,amigos",
@@ -136,12 +136,12 @@ abstract class AppDatabase : RoomDatabase() {
                 ),
                 TransactionEntity(
                     title = "Recarga Gasolina Premium",
-                    amount = 45.00,
+                    amount = 650.0,
                     type = "EXPENSE",
                     categoryId = 5,
                     date = System.currentTimeMillis() - 3600000L * 6,
-                    currencyCode = "USD",
-                    originalAmount = 45.00,
+                    currencyCode = "MXN",
+                    originalAmount = 650.0,
                     exchangeRateToMain = 1.0,
                     notes = "Tanque lleno estación central",
                     receiptImagePath = null,
@@ -150,13 +150,13 @@ abstract class AppDatabase : RoomDatabase() {
                     isRecurring = false
                 ),
                 TransactionEntity(
-                    title = "Suscripción Streaming 4K",
-                    amount = 15.99,
+                    title = "Suscripción Streaming",
+                    amount = 249.0,
                     type = "EXPENSE",
                     categoryId = 10,
                     date = System.currentTimeMillis() - 3600000L * 2,
-                    currencyCode = "USD",
-                    originalAmount = 15.99,
+                    currencyCode = "MXN",
+                    originalAmount = 249.0,
                     exchangeRateToMain = 1.0,
                     notes = "Membresía mensual",
                     receiptImagePath = null,

@@ -20,7 +20,7 @@ data class Transaction(
     val type: TransactionType,
     val categoryId: Long,
     val date: Long = System.currentTimeMillis(),
-    val currencyCode: String = "USD",
+    val currencyCode: String = "MXN",
     val originalAmount: Double = amount,
     val exchangeRateToMain: Double = 1.0,
     val notes: String = "",
@@ -83,7 +83,7 @@ data class SecuritySettings(
     val lastCloudBackupTime: Long = 0L,
     val autoCloudSync: Boolean = true,
     val customMonthlyAlerts: Boolean = true,
-    val activeCurrencyCode: String = "USD"
+    val activeCurrencyCode: String = "MXN"
 )
 
 data class ReceiptScanResult(
