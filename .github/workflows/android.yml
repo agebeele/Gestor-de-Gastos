@@ -23,52 +23,39 @@ jobs:
         with:
           distribution: 'temurin'
           java-version: '21'
+          cache: 'gradle'
 
-      - name: Configurar Gradle
-        uses: gradle/actions/setup-gradle@v4
-
-      - name: Preparar Entorno, Keystore y Licencias
+      - name: Preparar Entorno y Licencias Android
         run: |
           touch .env
-          if [ -f "debug.keystore.base64" ] && [ ! -f "debug.keystore" ]; then
-            echo "Restaurando debug.keystore desde base64..."
+          if [ -f "debug.keystore.base64" ] && [ ! -s "debug.keystore" ]; then
             base64 -d debug.keystore.base64 > debug.keystore
-          elif [ ! -f "debug.keystore" ]; then
-            echo "Generando nuevo debug.keystore..."
-            keytool -genkey -v -keystore debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
           fi
-          mkdir -p "$ANDROID_HOME/licenses" || true
-          echo -e "\n24333f8a63b6825ea9c5514f83c2829b004d1fee" >> "$ANDROID_HOME/licenses/android-sdk-license" 2>/dev/null || true
-          echo -e "\n84831b9409646a918e30573bab4c9c91346d8abd" >> "$ANDROID_HOME/licenses/android-sdk-preview-license" 2>/dev/null || true
-          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses 2>/dev/null || true
-
-      - name: Dar permisos de ejecución a Gradle Wrapper
-        run: chmod +x gradlew
+          sudo chown -R $USER:$USER "$ANDROID_HOME" 2>/dev/null || true
+          mkdir -p "$ANDROID_HOME/licenses" 2>/dev/null || true
+          echo "24333f8a63b6825ea9c5514f83c2829b004d1fee" > "$ANDROID_HOME/licenses/android-sdk-license" 2>/dev/null || true
+          echo "84831b9409646a918e30573bab4c9c91346d8abd" > "$ANDROID_HOME/licenses/android-sdk-preview-license" 2>/dev/null || true
+          chmod +x gradlew
 
       - name: Compilar APK Debug
         run: ./gradlew assembleDebug --no-daemon --stacktrace
 
       - name: Preparar archivo APK
         run: |
-          mkdir -p apk_output
-          cp app/build/outputs/apk/debug/app-debug.apk apk_output/GestorDeGastos-MXN.apk
-          cp app/build/outputs/apk/debug/app-debug.apk apk_output/app-debug.apk
+          cp app/build/outputs/apk/debug/app-debug.apk app/build/outputs/apk/debug/GestorDeGastos-MXN.apk 2>/dev/null || true
 
       - name: Subir APK descargable
         uses: actions/upload-artifact@v4
         with:
           name: app-debug
-          path: apk_output/*.apk
+          path: app/build/outputs/apk/debug/*.apk
           retention-days: 30
 
       - name: Resumen en GitHub
         run: |
-          echo "### 📱 ¡Tu APK de Gestor de Gastos (Pesos Mexicanos) se compiló exitosamente!" >> $GITHUB_STEP_SUMMARY
+          echo "### 📱 ¡APK compilado con éxito!" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "Descarga el artefacto **app-debug** que contiene el archivo listo para instalar:" >> $GITHUB_STEP_SUMMARY
-          echo "- **GestorDeGastos-MXN.apk**" >> $GITHUB_STEP_SUMMARY
+          echo "Se ha generado tu APK listo para instalar en tu teléfono celular:" >> $GITHUB_STEP_SUMMARY
+          echo "- **GestorDeGastos-MXN.apk** (app-debug.apk)" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "#### 📲 Pasos para instalar en tu celular:" >> $GITHUB_STEP_SUMMARY
-          echo "1. Ve a la sección **Artifacts** de esta ejecución." >> $GITHUB_STEP_SUMMARY
-          echo "2. Descarga **app-debug.zip** y abre el archivo **GestorDeGastos-MXN.apk**." >> $GITHUB_STEP_SUMMARY
-          echo "3. Permite la instalación desde fuentes desconocidas y presiona **Instalar**." >> $GITHUB_STEP_SUMMARY
+          echo "Descárgalo en la sección **Artifacts** (archivo **app-debug**)." >> $GITHUB_STEP_SUMMARY
