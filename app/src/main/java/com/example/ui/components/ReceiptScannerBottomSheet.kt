@@ -1,10 +1,15 @@
 package com.example.ui.components
 
+import android.Manifest
+import android.content.Context
+import android.content.pm.PackageManager
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.graphics.ImageDecoder
 import android.net.Uri
 import android.os.Build
 import android.provider.MediaStore
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
@@ -30,7 +35,6 @@ import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.PhotoLibrary
-import androidx.compose.material.icons.filled.ReceiptLong
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -57,8 +61,28 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
+import androidx.core.content.FileProvider
 import com.example.data.currency.CurrencyManager
 import com.example.data.model.ReceiptScanResult
+import java.io.File
+import java.io.FileOutputStream
+
+fun saveBitmapToPersistentFile(context: Context, bitmap: Bitmap): String? {
+    return try {
+        val receiptsDir = File(context.filesDir, "receipts").apply {
+            if (!exists()) mkdirs()
+        }
+        val file = File(receiptsDir, "ticket_${System.currentTimeMillis()}.jpg")
+        FileOutputStream(file).use { out ->
+            bitmap.compress(Bitmap.CompressFormat.JPEG, 90, out)
+        }
+        file.absolutePath
+    } catch (e: Exception) {
+        e.printStackTrace()
+        null
+    }
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -66,23 +90,107 @@ fun ReceiptScannerBottomSheet(
     isScanning: Boolean,
     scanResult: ReceiptScanResult?,
     activeCurrencyCode: String,
-    onScanImage: (Bitmap) -> Unit,
+    onScanImage: (Bitmap, String?) -> Unit,
     onApplyResult: (ReceiptScanResult) -> Unit,
     onDismiss: () -> Unit
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val context = LocalContext.current
     var previewBitmap by remember { mutableStateOf<Bitmap?>(null) }
+    var currentSavedImagePath by remember { mutableStateOf<String?>(null) }
+    var tempCameraFile by remember { mutableStateOf<File?>(null) }
 
-    val cameraLauncher = rememberLauncherForActivityResult(
+    // High quality file capture
+    val takePictureLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.TakePicture()
+    ) { success ->
+        if (success && tempCameraFile != null && tempCameraFile!!.exists()) {
+            try {
+                val bitmap = BitmapFactory.decodeFile(tempCameraFile!!.absolutePath)
+                if (bitmap != null) {
+                    previewBitmap = bitmap
+                    val persistentPath = saveBitmapToPersistentFile(context, bitmap)
+                    currentSavedImagePath = persistentPath ?: tempCameraFile!!.absolutePath
+                    onScanImage(bitmap, currentSavedImagePath)
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                Toast.makeText(context, "Error al procesar la fotografía", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    // Fallback thumbnail capture
+    val takePreviewLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.TakePicturePreview()
     ) { bitmap ->
         if (bitmap != null) {
             previewBitmap = bitmap
-            onScanImage(bitmap)
+            val savedPath = saveBitmapToPersistentFile(context, bitmap)
+            currentSavedImagePath = savedPath
+            onScanImage(bitmap, savedPath)
         }
     }
 
+    // Camera action trigger with safety
+    val triggerCamera = {
+        try {
+            val cacheReceiptsDir = File(context.cacheDir, "receipts").apply {
+                if (!exists()) mkdirs()
+            }
+            val file = File(cacheReceiptsDir, "camera_${System.currentTimeMillis()}.jpg")
+            tempCameraFile = file
+            val uri = FileProvider.getUriForFile(
+                context,
+                "${context.packageName}.fileprovider",
+                file
+            )
+            takePictureLauncher.launch(uri)
+        } catch (e: Exception) {
+            e.printStackTrace()
+            // Fallback to preview contract if FileProvider throws
+            try {
+                takePreviewLauncher.launch(null)
+            } catch (e2: Exception) {
+                e2.printStackTrace()
+                Toast.makeText(
+                    context,
+                    "No se pudo iniciar la cámara: ${e2.localizedMessage ?: "Error desconocido"}",
+                    Toast.LENGTH_LONG
+                ).show()
+            }
+        }
+    }
+
+    // Permission launcher for camera
+    val cameraPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            triggerCamera()
+        } else {
+            Toast.makeText(
+                context,
+                "Se requiere permiso de cámara para capturar la foto del ticket",
+                Toast.LENGTH_LONG
+            ).show()
+        }
+    }
+
+    val onTakePhotoClick = {
+        val hasPermission = ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.CAMERA
+        ) == PackageManager.PERMISSION_GRANTED
+
+        if (hasPermission) {
+            triggerCamera()
+        } else {
+            cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+        }
+    }
+
+    // Gallery picker
     val galleryLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
@@ -96,9 +204,12 @@ fun ReceiptScannerBottomSheet(
                     ImageDecoder.decodeBitmap(source)
                 }
                 previewBitmap = bitmap
-                onScanImage(bitmap)
+                val savedPath = saveBitmapToPersistentFile(context, bitmap)
+                currentSavedImagePath = savedPath
+                onScanImage(bitmap, savedPath)
             } catch (e: Exception) {
                 e.printStackTrace()
+                Toast.makeText(context, "Error al cargar imagen de la galería", Toast.LENGTH_SHORT).show()
             }
         }
     }
@@ -133,7 +244,7 @@ fun ReceiptScannerBottomSheet(
                 Column {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
-                            text = "Escáner Inteligente de Recibos",
+                            text = "Escáner Inteligente de Tickets",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold
                         )
@@ -146,7 +257,7 @@ fun ReceiptScannerBottomSheet(
                         )
                     }
                     Text(
-                        text = "Lectura OCR y extracción automática de montos",
+                        text = "Captura tu recibo para extraer el monto y guardar la foto",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -161,7 +272,7 @@ fun ReceiptScannerBottomSheet(
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 Button(
-                    onClick = { cameraLauncher.launch(null) },
+                    onClick = onTakePhotoClick,
                     modifier = Modifier.weight(1f),
                     shape = RoundedCornerShape(12.dp)
                 ) {
@@ -175,7 +286,13 @@ fun ReceiptScannerBottomSheet(
                 }
 
                 OutlinedButton(
-                    onClick = { galleryLauncher.launch("image/*") },
+                    onClick = {
+                        try {
+                            galleryLauncher.launch("image/*")
+                        } catch (e: Exception) {
+                            Toast.makeText(context, "No se pudo abrir la galería", Toast.LENGTH_SHORT).show()
+                        }
+                    },
                     modifier = Modifier.weight(1f),
                     shape = RoundedCornerShape(12.dp)
                 ) {
@@ -195,14 +312,14 @@ fun ReceiptScannerBottomSheet(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(180.dp)
+                        .height(200.dp)
                         .clip(RoundedCornerShape(14.dp))
                         .background(MaterialTheme.colorScheme.surfaceVariant),
                     contentAlignment = Alignment.Center
                 ) {
                     Image(
                         bitmap = previewBitmap!!.asImageBitmap(),
-                        contentDescription = "Recibo",
+                        contentDescription = "Ticket capturado",
                         modifier = Modifier.fillMaxWidth()
                     )
 
@@ -210,8 +327,8 @@ fun ReceiptScannerBottomSheet(
                         Surface(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(180.dp),
-                            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.8f)
+                                .height(200.dp),
+                            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f)
                         ) {
                             Column(
                                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -220,7 +337,7 @@ fun ReceiptScannerBottomSheet(
                                 CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
                                 Spacer(modifier = Modifier.height(10.dp))
                                 Text(
-                                    text = "Analizando recibo con IA...",
+                                    text = "Analizando ticket con IA...",
                                     style = MaterialTheme.typography.bodyMedium,
                                     fontWeight = FontWeight.Bold,
                                     color = MaterialTheme.colorScheme.primary
@@ -271,7 +388,7 @@ fun ReceiptScannerBottomSheet(
                             Spacer(modifier = Modifier.height(10.dp))
 
                             Text(
-                                text = result.merchant,
+                                text = result.merchant.ifBlank { "Comercio Detectado" },
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onSurface
@@ -335,7 +452,7 @@ fun ReceiptScannerBottomSheet(
 
                             Button(
                                 onClick = {
-                                    onApplyResult(result)
+                                    onApplyResult(result.copy(imagePath = currentSavedImagePath))
                                     onDismiss()
                                 },
                                 modifier = Modifier.fillMaxWidth(),
@@ -350,7 +467,7 @@ fun ReceiptScannerBottomSheet(
                                     modifier = Modifier.size(18.dp)
                                 )
                                 Spacer(modifier = Modifier.width(8.dp))
-                                Text(text = "Crear Gasto con estos Datos")
+                                Text(text = "Crear Gasto con Foto y Datos")
                             }
                         }
                     }

@@ -79,7 +79,6 @@ fun SettingsScreen(
     onTriggerCloudSync: () -> Unit
 ) {
     val dateFormatter = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.US)
-    var pinText by remember { mutableStateOf(securitySettings.pinCode) }
 
     LazyColumn(
         modifier = Modifier
@@ -99,14 +98,14 @@ fun SettingsScreen(
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 Text(
-                    text = "Seguridad biométrica, sincronización en la nube y monedas",
+                    text = "Sincronización en la nube, monedas y preferencias",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }
 
-        // --- SECURITY & BIOMETRICS SECTION ---
+        // --- PRIVACY & ENCRYPTION INFO (SIN BLOQUEOS) ---
         item {
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -131,56 +130,19 @@ fun SettingsScreen(
                         Spacer(modifier = Modifier.width(12.dp))
                         Column {
                             Text(
-                                text = "Seguridad & Cifrado E2E",
+                                text = "Privacidad & Cifrado Local",
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold
                             )
                             Text(
-                                text = "Protección de datos financieros con AES-256",
+                                text = "Acceso directo sin bloqueos ni PIN",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    // Biometric Toggle
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = Icons.Default.Fingerprint,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(22.dp)
-                            )
-                            Spacer(modifier = Modifier.width(10.dp))
-                            Column {
-                                Text(
-                                    text = "Bloqueo Biométrico",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    fontWeight = FontWeight.Bold
-                                )
-                                Text(
-                                    text = "Requerir huella o rostro al abrir la app",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                        }
-                        Switch(
-                            checked = securitySettings.biometricEnabled,
-                            onCheckedChange = {
-                                onUpdateSecuritySettings(securitySettings.copy(biometricEnabled = it))
-                            }
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(14.dp))
 
                     // End-to-End Encryption Status Badge
                     Surface(
@@ -201,38 +163,19 @@ fun SettingsScreen(
                             Spacer(modifier = Modifier.width(8.dp))
                             Column {
                                 Text(
-                                    text = "Cifrado de Extremo a Extremo Activo",
+                                    text = "Base de Datos Protegida (AES-256)",
                                     style = MaterialTheme.typography.labelMedium,
                                     fontWeight = FontWeight.Bold,
                                     color = Color(0xFF065F46)
                                 )
                                 Text(
-                                    text = "Algoritmo AES/GCM/NoPadding (256-bit). Clave local cifrada.",
+                                    text = "Tus gastos e ingresos se guardan seguros y cifrados en tu dispositivo.",
                                     style = MaterialTheme.typography.labelSmall,
                                     color = Color(0xFF047857)
                                 )
                             }
                         }
                     }
-
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    // PIN Code
-                    OutlinedTextField(
-                        value = pinText,
-                        onValueChange = {
-                            if (it.length <= 6) {
-                                pinText = it
-                                onUpdateSecuritySettings(securitySettings.copy(pinCode = it))
-                            }
-                        },
-                        label = { Text("Código PIN de Respaldo") },
-                        placeholder = { Text("Ej. 1234") },
-                        leadingIcon = { Icon(Icons.Default.Key, contentDescription = null) },
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp),
-                        singleLine = true
-                    )
                 }
             }
         }

@@ -40,7 +40,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.data.model.ReceiptScanResult
 import com.example.data.model.Transaction
-import com.example.ui.components.BiometricLockOverlay
 import com.example.ui.components.CurrencySelectorBottomSheet
 import com.example.ui.components.ExportBottomSheet
 import com.example.ui.components.FilterBottomSheet
@@ -80,7 +79,6 @@ fun MainAppScreen(
         val securitySettings by viewModel.securitySettings.collectAsState()
         val syncStatus by viewModel.syncStatus.collectAsState()
         val filterCriteria by viewModel.filterCriteria.collectAsState()
-        val isAppLocked by viewModel.isAppLocked.collectAsState()
         val isScanningReceipt by viewModel.isScanningReceipt.collectAsState()
         val scanResult by viewModel.scanResult.collectAsState()
         val userMessage by viewModel.userMessage.collectAsState()
@@ -227,8 +225,7 @@ fun MainAppScreen(
                                         showAddEditScreen = true
                                     },
                                     onViewAllTransactions = { currentTab = MainTab.TRANSACTIONS },
-                                    onAdjustBudgetClick = { currentTab = MainTab.BUDGETS },
-                                    onLockAppClick = { viewModel.lockApp() }
+                                    onAdjustBudgetClick = { currentTab = MainTab.BUDGETS }
                                 )
                             }
                             MainTab.TRANSACTIONS -> {
@@ -311,8 +308,8 @@ fun MainAppScreen(
                     isScanning = isScanningReceipt,
                     scanResult = scanResult,
                     activeCurrencyCode = securitySettings.activeCurrencyCode,
-                    onScanImage = { bitmap ->
-                        viewModel.scanReceiptWithAi(bitmap)
+                    onScanImage = { bitmap, path ->
+                        viewModel.scanReceiptWithAi(bitmap, path)
                     },
                     onApplyResult = { result ->
                         activeScanResultForNewTx = result
@@ -351,13 +348,6 @@ fun MainAppScreen(
                     onDismiss = { showFilterSheet = false }
                 )
             }
-
-            // --- BIOMETRIC SECURITY SHIELD ---
-            BiometricLockOverlay(
-                isLocked = isAppLocked,
-                onUnlockSuccess = { viewModel.unlockApp() },
-                pinCodeConfigured = securitySettings.pinCode
-            )
         }
     }
 }

@@ -340,11 +340,11 @@ class FinanceViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
-    fun scanReceiptWithAi(bitmap: Bitmap) {
+    fun scanReceiptWithAi(bitmap: Bitmap, imagePath: String? = null) {
         viewModelScope.launch {
             _isScanningReceipt.value = true
             try {
-                val result = GeminiReceiptScanner.parseReceiptImage(bitmap)
+                val result = GeminiReceiptScanner.parseReceiptImage(bitmap).copy(imagePath = imagePath)
                 _scanResult.value = result
                 showMessage("Recibo procesado: ${result.merchant} ($${result.totalAmount})")
             } catch (e: Exception) {
@@ -364,9 +364,8 @@ class FinanceViewModel(application: Application) : AndroidViewModel(application)
     }
 
     fun lockApp() {
-        if (securitySettings.value.biometricEnabled || securitySettings.value.pinCode.isNotBlank()) {
-            _isAppLocked.value = true
-        }
+        // Biometric / security lock disabled per user request
+        _isAppLocked.value = false
     }
 
     fun showMessage(message: String) {

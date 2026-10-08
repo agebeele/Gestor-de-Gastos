@@ -28,7 +28,6 @@ import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.CloudDone
 import androidx.compose.material.icons.filled.CurrencyExchange
 import androidx.compose.material.icons.filled.FileDownload
-import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -83,8 +82,7 @@ fun HomeScreen(
     onAddTransactionClick: () -> Unit,
     onTransactionClick: (Transaction) -> Unit,
     onViewAllTransactions: () -> Unit,
-    onAdjustBudgetClick: () -> Unit,
-    onLockAppClick: () -> Unit
+    onAdjustBudgetClick: () -> Unit
 ) {
     val categoryMap = categories.associateBy { it.id }
 
@@ -160,21 +158,6 @@ fun HomeScreen(
                                     color = MaterialTheme.colorScheme.onPrimaryContainer
                                 )
                             }
-                        }
-
-                        // Lock app button
-                        IconButton(
-                            onClick = onLockAppClick,
-                            modifier = Modifier
-                                .size(36.dp)
-                                .background(MaterialTheme.colorScheme.surfaceVariant, CircleShape)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Lock,
-                                contentDescription = "Bloquear",
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.size(18.dp)
-                            )
                         }
                     }
                 }

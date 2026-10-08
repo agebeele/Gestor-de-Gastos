@@ -1,6 +1,17 @@
 package com.example.ui.screens
 
+import android.Manifest
 import android.app.DatePickerDialog
+import android.content.pm.PackageManager
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.graphics.ImageDecoder
+import android.net.Uri
+import android.os.Build
+import android.provider.MediaStore
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -23,9 +34,12 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ReceiptLong
 import androidx.compose.material.icons.filled.CalendarToday
+import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.material.icons.filled.Receipt
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -36,6 +50,7 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.SegmentedButton
@@ -56,6 +71,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.TextStyle
@@ -64,6 +80,9 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
+import androidx.core.content.FileProvider
+import coil.compose.AsyncImage
 import com.example.data.currency.CurrencyManager
 import com.example.data.model.Category
 import com.example.data.model.PaymentMethod
@@ -71,8 +90,11 @@ import com.example.data.model.ReceiptScanResult
 import com.example.data.model.Transaction
 import com.example.data.model.TransactionType
 import com.example.ui.components.CategoryIconHelper
+import com.example.ui.components.TicketPreviewDialog
+import com.example.ui.components.saveBitmapToPersistentFile
 import com.example.ui.theme.ExpenseRed
 import com.example.ui.theme.IncomeGreen
+import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
@@ -144,6 +166,106 @@ fun AddEditTransactionScreen(
         mutableStateOf(initialTransaction?.isRecurring ?: false)
     }
 
+    // Receipt image state
+    var receiptImagePath by remember {
+        mutableStateOf(initialTransaction?.receiptImagePath ?: initialScanResult?.imagePath)
+    }
+    var showTicketPreviewDialog by remember { mutableStateOf(false) }
+    var tempCameraFile by remember { mutableStateOf<File?>(null) }
+
+    // Camera launcher
+    val takePictureLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.TakePicture()
+    ) { success ->
+        if (success && tempCameraFile != null && tempCameraFile!!.exists()) {
+            try {
+                val bitmap = BitmapFactory.decodeFile(tempCameraFile!!.absolutePath)
+                if (bitmap != null) {
+                    val saved = saveBitmapToPersistentFile(context, bitmap)
+                    receiptImagePath = saved ?: tempCameraFile!!.absolutePath
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                Toast.makeText(context, "Error al procesar la foto", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    val takePreviewLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.TakePicturePreview()
+    ) { bitmap ->
+        if (bitmap != null) {
+            val saved = saveBitmapToPersistentFile(context, bitmap)
+            receiptImagePath = saved
+        }
+    }
+
+    val triggerCamera = {
+        try {
+            val cacheReceiptsDir = File(context.cacheDir, "receipts").apply {
+                if (!exists()) mkdirs()
+            }
+            val file = File(cacheReceiptsDir, "ticket_${System.currentTimeMillis()}.jpg")
+            tempCameraFile = file
+            val uri = FileProvider.getUriForFile(
+                context,
+                "${context.packageName}.fileprovider",
+                file
+            )
+            takePictureLauncher.launch(uri)
+        } catch (e: Exception) {
+            e.printStackTrace()
+            try {
+                takePreviewLauncher.launch(null)
+            } catch (e2: Exception) {
+                Toast.makeText(context, "No se pudo iniciar la cámara: ${e2.localizedMessage}", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    val cameraPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            triggerCamera()
+        } else {
+            Toast.makeText(context, "Se requiere permiso de cámara para tomar foto del ticket", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    val onTakePhotoClick = {
+        val hasPermission = ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.CAMERA
+        ) == PackageManager.PERMISSION_GRANTED
+        if (hasPermission) {
+            triggerCamera()
+        } else {
+            cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+        }
+    }
+
+    val galleryLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        uri?.let {
+            try {
+                val bitmap = if (Build.VERSION.SDK_INT < 28) {
+                    @Suppress("DEPRECATION")
+                    MediaStore.Images.Media.getBitmap(context.contentResolver, it)
+                } else {
+                    val source = ImageDecoder.createSource(context.contentResolver, it)
+                    ImageDecoder.decodeBitmap(source)
+                }
+                val saved = saveBitmapToPersistentFile(context, bitmap)
+                receiptImagePath = saved
+            } catch (e: Exception) {
+                e.printStackTrace()
+                Toast.makeText(context, "Error al cargar imagen de la galería", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
     val dateFormatter = SimpleDateFormat("dd/MM/yyyy", Locale.US)
     val availableCategories = categories.filter { it.isIncome == (type == TransactionType.INCOME) }
 
@@ -199,43 +321,43 @@ fun AddEditTransactionScreen(
                 selected = type == TransactionType.EXPENSE,
                 onClick = {
                     type = TransactionType.EXPENSE
-                    val firstExpenseCat = categories.firstOrNull { !it.isIncome }
-                    if (firstExpenseCat != null) selectedCategoryId = firstExpenseCat.id
+                    val defaultCat = categories.firstOrNull { !it.isIncome }
+                    if (defaultCat != null) selectedCategoryId = defaultCat.id
                 },
-                shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2)
-            ) {
-                Text(
-                    text = "Gasto",
-                    fontWeight = FontWeight.Bold,
-                    color = if (type == TransactionType.EXPENSE) ExpenseRed else MaterialTheme.colorScheme.onSurface
+                shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2),
+                colors = SegmentedButtonDefaults.colors(
+                    activeContainerColor = ExpenseRed.copy(alpha = 0.15f),
+                    activeContentColor = ExpenseRed
                 )
+            ) {
+                Text("Gasto", fontWeight = FontWeight.Bold)
             }
+
             SegmentedButton(
                 selected = type == TransactionType.INCOME,
                 onClick = {
                     type = TransactionType.INCOME
-                    val firstIncomeCat = categories.firstOrNull { it.isIncome }
-                    if (firstIncomeCat != null) selectedCategoryId = firstIncomeCat.id
+                    val defaultCat = categories.firstOrNull { it.isIncome }
+                    if (defaultCat != null) selectedCategoryId = defaultCat.id
                 },
-                shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2)
-            ) {
-                Text(
-                    text = "Ingreso",
-                    fontWeight = FontWeight.Bold,
-                    color = if (type == TransactionType.INCOME) IncomeGreen else MaterialTheme.colorScheme.onSurface
+                shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2),
+                colors = SegmentedButtonDefaults.colors(
+                    activeContainerColor = IncomeGreen.copy(alpha = 0.15f),
+                    activeContentColor = IncomeGreen
                 )
+            ) {
+                Text("Ingreso", fontWeight = FontWeight.Bold)
             }
         }
 
-        Spacer(modifier = Modifier.height(18.dp))
+        Spacer(modifier = Modifier.height(20.dp))
 
         // --- AMOUNT INPUT CARD ---
         Card(
-            modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(20.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = if (type == TransactionType.EXPENSE) Color(0xFFFEF2F2) else Color(0xFFECFDF5)
-            )
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+            modifier = Modifier.fillMaxWidth()
         ) {
             Column(
                 modifier = Modifier
@@ -244,42 +366,46 @@ fun AddEditTransactionScreen(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
-                    text = "Monto de la Transacción",
+                    text = "Monto de la transacción",
                     style = MaterialTheme.typography.labelMedium,
-                    color = Color(0xFF4B5563)
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
 
-                Spacer(modifier = Modifier.height(6.dp))
+                Spacer(modifier = Modifier.height(8.dp))
 
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.Center,
-                    modifier = Modifier.fillMaxWidth()
+                    horizontalArrangement = Arrangement.Center
                 ) {
-                    val curr = CurrencyManager.getCurrency(selectedCurrency)
                     Text(
-                        text = curr.symbol,
-                        style = MaterialTheme.typography.headlineLarge,
+                        text = CurrencyManager.getCurrency(selectedCurrency).symbol,
+                        style = MaterialTheme.typography.displaySmall,
                         fontWeight = FontWeight.Bold,
                         color = if (type == TransactionType.EXPENSE) ExpenseRed else IncomeGreen
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                     OutlinedTextField(
                         value = amountText,
-                        onValueChange = { amountText = it },
+                        onValueChange = { input ->
+                            if (input.isEmpty() || input.matches(Regex("^\\d*\\.?\\d{0,2}$"))) {
+                                amountText = input
+                            }
+                        },
                         textStyle = TextStyle(
                             fontSize = 32.sp,
                             fontWeight = FontWeight.Bold,
-                            textAlign = TextAlign.Center,
-                            color = if (type == TransactionType.EXPENSE) ExpenseRed else IncomeGreen
+                            textAlign = TextAlign.Start,
+                            color = MaterialTheme.colorScheme.onSurface
                         ),
-                        placeholder = { Text("0.00", fontSize = 32.sp, textAlign = TextAlign.Center) },
+                        placeholder = { Text("0.00", fontSize = 32.sp, color = MaterialTheme.colorScheme.outline) },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                        modifier = Modifier.width(180.dp),
                         singleLine = true,
+                        modifier = Modifier
+                            .width(220.dp)
+                            .testTag("amount_input_field"),
                         colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = Color.Transparent,
-                            unfocusedBorderColor = Color.Transparent
+                            unfocusedBorderColor = Color.Transparent,
+                            focusedBorderColor = Color.Transparent
                         )
                     )
                 }
@@ -288,14 +414,17 @@ fun AddEditTransactionScreen(
                 Spacer(modifier = Modifier.height(8.dp))
                 Surface(
                     shape = RoundedCornerShape(10.dp),
-                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.25f))
                 ) {
                     Row(
                         modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
+                        Text(text = "🇲🇽", fontSize = 14.sp)
+                        Spacer(modifier = Modifier.width(6.dp))
                         Text(
-                            text = "🇲🇽 Moneda: Pesos Mexicanos ($ MXN)",
+                            text = "Peso Mexicano ($ MXN)",
                             style = MaterialTheme.typography.labelMedium,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.primary
@@ -305,97 +434,107 @@ fun AddEditTransactionScreen(
             }
         }
 
-        Spacer(modifier = Modifier.height(18.dp))
+        Spacer(modifier = Modifier.height(16.dp))
 
-        // --- CONCEPT / TITLE ---
+        // --- TITLE / MERCHANT ---
         OutlinedTextField(
             value = title,
             onValueChange = { title = it },
-            label = { Text("Concepto o Establecimiento *") },
-            placeholder = { Text("Ej. Supermercado, Alquiler, Sueldo...") },
-            modifier = Modifier.fillMaxWidth(),
+            label = { Text("Concepto o Comercio") },
+            placeholder = { Text("Ej. Walmart, Nómina, Gasolina") },
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag("transaction_title_input"),
             shape = RoundedCornerShape(14.dp),
             singleLine = true
         )
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(14.dp))
 
-        // --- CATEGORY SELECTOR ---
+        // --- CATEGORY SELECTOR CHIPS ---
         Text(
-            text = "Categoría *",
-            style = MaterialTheme.typography.labelLarge,
-            fontWeight = FontWeight.SemiBold
+            text = "Categoría",
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onSurface
         )
+
         Spacer(modifier = Modifier.height(8.dp))
+
         FlowRow(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
             modifier = Modifier.fillMaxWidth()
         ) {
-            availableCategories.forEach { cat ->
-                val isSelected = selectedCategoryId == cat.id
-                val catColor = CategoryIconHelper.parseColor(cat.colorHex)
+            availableCategories.forEach { category ->
+                val isSelected = selectedCategoryId == category.id
+                val catColor = CategoryIconHelper.parseColor(category.colorHex)
 
                 FilterChip(
                     selected = isSelected,
-                    onClick = { selectedCategoryId = cat.id },
-                    label = { Text(cat.name) },
+                    onClick = { selectedCategoryId = category.id },
+                    label = { Text(category.name) },
                     leadingIcon = {
                         Icon(
-                            imageVector = CategoryIconHelper.getIcon(cat.iconName),
+                            imageVector = CategoryIconHelper.getIcon(category.iconName),
                             contentDescription = null,
-                            tint = if (isSelected) MaterialTheme.colorScheme.onPrimary else catColor,
+                            tint = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else catColor,
                             modifier = Modifier.size(16.dp)
                         )
-                    }
+                    },
+                    shape = RoundedCornerShape(12.dp)
                 )
             }
         }
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // --- DATE PICKER & PAYMENT METHOD ---
+        // --- DATE PICKER BUTTON ---
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            // Date Picker Card
-            OutlinedTextField(
-                value = dateFormatter.format(Date(dateMillis)),
-                onValueChange = {},
-                readOnly = true,
-                label = { Text("Fecha") },
-                trailingIcon = {
-                    IconButton(onClick = {
-                        val cal = Calendar.getInstance().apply { timeInMillis = dateMillis }
-                        DatePickerDialog(
-                            context,
-                            { _, year, month, dayOfMonth ->
-                                cal.set(year, month, dayOfMonth)
-                                dateMillis = cal.timeInMillis
-                            },
-                            cal.get(Calendar.YEAR),
-                            cal.get(Calendar.MONTH),
-                            cal.get(Calendar.DAY_OF_MONTH)
-                        ).show()
-                    }) {
-                        Icon(Icons.Default.CalendarToday, contentDescription = "Seleccionar fecha")
-                    }
-                },
-                modifier = Modifier.weight(1f),
-                shape = RoundedCornerShape(14.dp)
+            Text(
+                text = "Fecha: ${dateFormatter.format(Date(dateMillis))}",
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.SemiBold
             )
+
+            TextButton(
+                onClick = {
+                    val cal = Calendar.getInstance().apply { timeInMillis = dateMillis }
+                    DatePickerDialog(
+                        context,
+                        { _, year, month, dayOfMonth ->
+                            val updatedCal = Calendar.getInstance().apply {
+                                set(year, month, dayOfMonth)
+                            }
+                            dateMillis = updatedCal.timeInMillis
+                        },
+                        cal.get(Calendar.YEAR),
+                        cal.get(Calendar.MONTH),
+                        cal.get(Calendar.DAY_OF_MONTH)
+                    ).show()
+                }
+            ) {
+                Icon(imageVector = Icons.Default.CalendarToday, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(modifier = Modifier.width(6.dp))
+                Text("Cambiar Fecha")
+            }
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(12.dp))
 
         // --- PAYMENT METHOD ---
         Text(
             text = "Método de Pago",
-            style = MaterialTheme.typography.labelLarge,
-            fontWeight = FontWeight.SemiBold
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.Bold
         )
+
         Spacer(modifier = Modifier.height(8.dp))
+
         FlowRow(
             horizontalArrangement = Arrangement.spacedBy(6.dp),
             verticalArrangement = Arrangement.spacedBy(6.dp),
@@ -407,6 +546,180 @@ fun AddEditTransactionScreen(
                     onClick = { paymentMethod = method },
                     label = { Text(method.displayName) }
                 )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // --- TICKET / COMPROBANTE IMAGE SECTION ---
+        Card(
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
+            ),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ReceiptLong,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Ticket / Comprobante de Compra",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+
+                    if (!receiptImagePath.isNullOrBlank()) {
+                        Surface(
+                            shape = RoundedCornerShape(6.dp),
+                            color = MaterialTheme.colorScheme.primary
+                        ) {
+                            Text(
+                                text = "Adjuntado",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onPrimary,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                if (!receiptImagePath.isNullOrBlank()) {
+                    val file = File(receiptImagePath!!)
+                    if (file.exists()) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(190.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(MaterialTheme.colorScheme.surface)
+                                .clickable { showTicketPreviewDialog = true },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            AsyncImage(
+                                model = file,
+                                contentDescription = "Ticket",
+                                modifier = Modifier.fillMaxSize(),
+                                contentScale = ContentScale.Fit
+                            )
+                            Surface(
+                                modifier = Modifier
+                                    .align(Alignment.BottomEnd)
+                                    .padding(8.dp),
+                                shape = RoundedCornerShape(8.dp),
+                                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f)
+                            ) {
+                                Text(
+                                    text = "Toca para ver completo",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            OutlinedButton(
+                                onClick = onTakePhotoClick,
+                                modifier = Modifier.weight(1f),
+                                shape = RoundedCornerShape(10.dp)
+                            ) {
+                                Icon(Icons.Default.CameraAlt, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("Cámara")
+                            }
+
+                            OutlinedButton(
+                                onClick = {
+                                    try {
+                                        galleryLauncher.launch("image/*")
+                                    } catch (e: Exception) {
+                                        Toast.makeText(context, "No se pudo abrir la galería", Toast.LENGTH_SHORT).show()
+                                    }
+                                },
+                                modifier = Modifier.weight(1f),
+                                shape = RoundedCornerShape(10.dp)
+                            ) {
+                                Icon(Icons.Default.PhotoLibrary, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("Galería")
+                            }
+
+                            IconButton(
+                                onClick = { receiptImagePath = null },
+                                modifier = Modifier
+                                    .background(MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.7f), RoundedCornerShape(10.dp))
+                            ) {
+                                Icon(Icons.Default.Delete, contentDescription = "Quitar ticket", tint = MaterialTheme.colorScheme.error)
+                            }
+                        }
+                    } else {
+                        Text(
+                            text = "Archivo de imagen no encontrado. Puedes tomar una nueva foto.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    }
+                } else {
+                    Text(
+                        text = "Guarda la foto de tu recibo para tener el comprobante visible en la lista de movimientos.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Button(
+                            onClick = onTakePhotoClick,
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Icon(Icons.Default.CameraAlt, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Tomar Foto")
+                        }
+
+                        OutlinedButton(
+                            onClick = {
+                                try {
+                                    galleryLauncher.launch("image/*")
+                                } catch (e: Exception) {
+                                    Toast.makeText(context, "No se pudo abrir la galería", Toast.LENGTH_SHORT).show()
+                                }
+                            },
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Icon(Icons.Default.PhotoLibrary, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Galería")
+                        }
+                    }
+                }
             }
         }
 
@@ -493,7 +806,7 @@ fun AddEditTransactionScreen(
                         originalAmount = parsedAmount,
                         exchangeRateToMain = convertedAmount / parsedAmount,
                         notes = notes.trim(),
-                        receiptImagePath = initialTransaction?.receiptImagePath,
+                        receiptImagePath = receiptImagePath,
                         paymentMethod = paymentMethod,
                         tags = if (tagsText.isBlank()) emptyList() else tagsText.split(",").map { it.trim() },
                         isRecurring = isRecurring
@@ -521,5 +834,14 @@ fun AddEditTransactionScreen(
         }
 
         Spacer(modifier = Modifier.height(30.dp))
+    }
+
+    if (showTicketPreviewDialog && !receiptImagePath.isNullOrBlank()) {
+        TicketPreviewDialog(
+            imagePath = receiptImagePath!!,
+            title = title.ifBlank { "Ticket de Compra" },
+            subtitle = if (amountText.isNotBlank()) "Monto: $amountText $selectedCurrency" else "",
+            onDismiss = { showTicketPreviewDialog = false }
+        )
     }
 }

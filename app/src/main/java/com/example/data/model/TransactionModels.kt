@@ -93,5 +93,6 @@ data class ReceiptScanResult(
     val suggestedCategory: String = "",
     val notes: String = "",
     val items: List<String> = emptyList(),
-    val confidence: String = "Alta"
+    val confidence: String = "Alta",
+    val imagePath: String? = null
 )
